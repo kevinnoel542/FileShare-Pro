@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FileShare Pro - Offline</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+      :root {
+        --primary: #4facfe;
+        --secondary: #00f2fe;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+      }
+      nav.navbar-dark {
+        background-color: rgba(0, 0, 0, 0.6);
+      }
+      main.container-main {
+        text-align: center;
+        flex-grow: 1;
+        padding: 4rem 1rem;
+      }
+      h1.display-4 {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+      }
+      .btn-custom {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.2rem;
+        border-radius: 12px;
+        transition: transform 0.2s ease;
+      }
+      .btn-custom:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+      }
+      .qr-icon {
+        font-size: 2rem;
+        cursor: pointer;
+        margin-top: 2rem;
+      }
+      .qr-icon:hover {
+        transform: scale(1.1);
+      }
+
+      /* Dark mode support */
+      [data-theme="dark"] {
+        background: #121212;
+        color: #eee;
+      }
+
+      [data-theme="dark"] nav.navbar-dark {
+        background-color: #1e1e1e;
+      }
+
+      /* Modal styles */
+      .qr-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+
+      .qr-modal.active {
+        display: flex;
+      }
+      .card {
+        border: none;
+        border-radius: 1rem;
+        background-color: rgba(255, 255, 255, 0.1);
+        -webkit-backdrop-filter: blur(5px);
+        backdrop-filter: blur(5px);
+        color: #fff;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+      }
+      [data-theme="dark"] .card {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #ddd;
+      }
+
+      .qr-card {
+        background: #fff;
+        color: #000;
+        padding: 2rem;
+        border-radius: 16px;
+        text-align: center;
+        max-width: 90%;
+      }
+
+      .qr-card img {
+        width: 200px;
+        height: 200px;
+      }
+
+      .qr-card button {
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+      <div class="container">
+        <a class="navbar-brand fw-bold" href="/">FileShare Pro</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navMain"
+          title="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/imported">Imported</a>
+            </li>
+
+          </ul>
+          <div class="form-check form-switch text-light">
+            <input class="form-check-input" type="checkbox" id="darkToggle" />
+            <label class="form-check-label" for="darkToggle">Dark Mode</label>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container-main">
+      <h1 class="display-4">Your Files. Your Network. No Cloud.</h1>
+      <p class="lead mb-4">
+        Keep your data local. Share files safely within your offline network.
+      </p>
+      <div class="d-flex justify-content-center flex-wrap gap-3 mb-4">
+        <a href="/imported" class="btn btn-light btn-custom"
+          >🚀 Start Sending Files</a
+        >
+      </div>
+      <div class="qr-icon text-white" id="qrToggle" title="Show QR to connect">
+        📱 Show QR Code
+      </div>
+    </main>
+
+    <!-- QR Modal -->
+    <div class="qr-modal" id="qrModal">
+      <div class="qr-card">
+        <h4>Scan to Open This App</h4>
+        <img src="/qr" alt="QR Code to Access Site" />
+        <button class="btn btn-danger mt-3" id="qrClose">Close</button>
+      </div>
+    </div>
+
+    <!-- Info Cards Section -->
+    <div class="container mt-5">
+      <div class="row g-4 justify-content-center">
+        <!-- Card 1 -->
+        <div class="col-md-4">
+          <div class="card h-100 text-center shadow card-glow">
+            <div class="card-body">
+              <div class="display-6">🛡️</div>
+              <h5 class="card-title mt-2">Privacy First</h5>
+              <p class="card-text">
+                No cloud, no tracking. All files stay within your offline
+                network.
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="col-md-4">
+          <div class="card h-100 text-center shadow card-glow">
+            <div class="card-body">
+              <div class="display-6">⚡</div>
+              <h5 class="card-title mt-2">Fast Transfers</h5>
+              <p class="card-text">
+                Send and receive files instantly — no uploads or downloads from
+                the internet.
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="col-md-4">
+          <div class="card h-100 text-center shadow card-glow">
+            <div class="card-body">
+              <div class="display-6">🔌</div>
+              <h5 class="card-title mt-2">Simple Setup</h5>
+              <p class="card-text">
+                No accounts. No setup. Just run, scan, and share in seconds.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Dark mode logic
+      const darkToggle = document.getElementById("darkToggle");
+      const root = document.documentElement;
+      function setTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        darkToggle.checked = theme === "dark";
+        localStorage.setItem("theme", theme);
+      }
+      darkToggle.addEventListener("change", () => {
+        setTheme(darkToggle.checked ? "dark" : "light");
+      });
+      setTheme(localStorage.getItem("theme") || "light");
+
+      // QR Modal
+      const qrToggle = document.getElementById("qrToggle");
+      const qrModal = document.getElementById("qrModal");
+      const qrClose = document.getElementById("qrClose");
+
+      qrToggle.addEventListener("click", () => {
+        qrModal.classList.add("active");
+      });
+
+      qrClose.addEventListener("click", () => {
+        qrModal.classList.remove("active");
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") qrModal.classList.remove("active");
+      });
+    </script>
+  </body>
+</html>
