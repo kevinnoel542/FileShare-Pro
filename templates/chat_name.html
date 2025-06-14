@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enter Name</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    input, button {
+      padding: 12px;
+      font-size: 1.2rem;
+      margin: 10px;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      background-color: #0d6efd;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>💬 Enter Your Name to Join Chat</h2>
+  <input type="text" id="username" placeholder="Your name">
+  <button onclick="saveName()">Continue</button>
+
+  <script>
+    function saveName() {
+      const name = document.getElementById('username').value.trim();
+      if (name) {
+        localStorage.setItem('chatName', name);
+        window.location.href = "/chat";
+      } else {
+        alert("Name required!");
+      }
+    }
+
+    // If already has name, skip to chat
+    if (localStorage.getItem('chatName')) {
+      window.location.href = "/chat";
+    }
+  </script>
+</body>
+</html>

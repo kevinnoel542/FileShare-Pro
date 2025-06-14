@@ -246,7 +246,10 @@ function getBadge(fileName) {
             <td class="text-center">
               <a href="/imported/files/${encodeURIComponent(name)}" class="btn btn-sm btn-success me-1" download title="Download ${name}">⬇️</a>
               <button class="btn btn-sm btn-danger" onclick="deleteFile('${name}')" title="Delete ${name}">🗑️</button>
+              <a href="/preview.html?file=${encodeURIComponent(name)}" class="btn btn-sm btn-info me-1" title="Preview ${name}">👁️</a>
+
             </td>`;
+
           tbody.appendChild(tr);
         });
       }

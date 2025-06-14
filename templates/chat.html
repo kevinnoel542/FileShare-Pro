@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat - WhatsApp Style Reply</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #ece5dd;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    #chatBox {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+    }
+    .chat-bubble {
+      max-width: 75%;
+      padding: 8px 12px;
+      border-radius: 7px;
+      position: relative;
+      box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+      font-size: 15px;
+      word-break: break-word;
+      display: flex;
+      flex-direction: column;
+    }
+    .mine {
+      background-color: #dcf8c6;
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+    }
+    .theirs {
+      background: white;
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+    }
+    .chat-bubble small {
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
+      user-select: none;
+    }
+    .reply-box {
+      background: #e1f3fb;
+      border-left: 4px solid #34b7f1;
+      padding: 6px 12px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #0b77d1;
+      border-radius: 4px;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      position: relative;
+    }
+    .reply-box::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #34b7f1;
+      border-radius: 2px 0 0 2px;
+    }
+    .reply-btn {
+      font-size: 14px;
+      color: #888;
+      cursor: pointer;
+      user-select: none;
+      align-self: flex-end;
+      margin-top: 4px;
+      padding: 0 4px;
+      border-radius: 3px;
+      transition: background-color 0.3s;
+    }
+    .reply-btn:hover {
+      background-color: #d1d1d1;
+    }
+    #replyPreview {
+      background: #fff;
+      border-left: 4px solid #34b7f1;
+      padding: 6px 12px;
+      margin: 4px 10px 0 10px;
+      font-size: 13px;
+      color: #0b77d1;
+      border-radius: 4px;
+      user-select: none;
+      display: none;
+      position: relative;
+    }
+    #replyPreview span {
+      cursor: pointer;
+      position: absolute;
+      right: 8px;
+      top: 6px;
+      font-weight: bold;
+      user-select: none;
+    }
+    #typingIndicator {
+      padding: 4px 12px;
+      font-size: 13px;
+      color: gray;
+      font-style: italic;
+      min-height: 18px;
+    }
+    #inputArea {
+      display: flex;
+      padding: 10px;
+      background: white;
+      border-top: 1px solid #ccc;
+    }
+    #messageInput {
+      flex: 1;
+      font-size: 16px;
+      padding: 10px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+    #sendBtn {
+      background: #34b7f1;
+      border: none;
+      color: white;
+      font-size: 18px;
+      padding: 0 16px;
+      margin-left: 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.3s;
+    }
+    #sendBtn:hover {
+      background-color: #269bd1;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="chatBox"></div>
+  <div id="typingIndicator"></div>
+
+  <div id="replyPreview">
+    Replying to: <span id="replyText"></span> <span id="cancelReply" title="Cancel reply" style="cursor:pointer;">✖</span>
+  </div>
+
+  <div id="inputArea">
+    <input id="messageInput" placeholder="Type a message" autocomplete="off" />
+    <button id="sendBtn">➤</button>
+  </div>
+
+  <!-- 🔔 Notification Sound Player -->
+  <audio id="notifSound" src="/static/sounds/ping.mp3" preload="auto"></audio>
+
+<script>
+  const chatBox = document.getElementById("chatBox");
+  const messageInput = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const replyPreview = document.getElementById("replyPreview");
+  const replyText = document.getElementById("replyText");
+  const cancelReply = document.getElementById("cancelReply");
+  const typingIndicator = document.getElementById("typingIndicator");
+  const notifSound = document.getElementById("notifSound");
+
+  let myName = prompt("Enter your chat name:", "You") || "You";
+  let replyTo = null;
+  let typingTimeout;
+  let lastMessageCount = 0;
+
+  function playSound() {
+    notifSound.play().catch(() => {});
+  }
+
+  function updateReplyPreview() {
+    if (replyTo) {
+      replyText.textContent = `${replyTo.name}: ${replyTo.msg}`;
+      replyPreview.style.display = "block";
+    } else {
+      replyPreview.style.display = "none";
+      replyText.textContent = "";
+    }
+  }
+
+  cancelReply.onclick = () => {
+    replyTo = null;
+    updateReplyPreview();
+    messageInput.focus();
+  };
+
+  async function fetchMessages() {
+    try {
+      const res = await fetch('/chat/messages');
+      const data = await res.json();
+
+      const newMsgFromOther = data.length > lastMessageCount &&
+                              data[data.length - 1]?.name !== myName;
+
+      renderChat(data);
+
+      if (newMsgFromOther) {
+        playSound();
+      }
+
+      lastMessageCount = data.length;
+    } catch (e) {
+      console.error("Failed to fetch messages:", e);
+    }
+  }
+
+  function renderChat(messages) {
+    chatBox.innerHTML = "";
+    messages.forEach(msg => {
+      const bubble = document.createElement("div");
+      bubble.classList.add("chat-bubble");
+      bubble.classList.add(msg.name === myName ? "mine" : "theirs");
+
+      const meta = document.createElement("small");
+      meta.textContent = `${msg.name} • ${msg.time}`;
+      bubble.appendChild(meta);
+
+      if (msg.replyTo) {
+        const replyBox = document.createElement("div");
+        replyBox.className = "reply-box";
+        replyBox.textContent = `${msg.replyTo.name}: ${msg.replyTo.msg}`;
+        bubble.appendChild(replyBox);
+      }
+
+      const text = document.createElement("div");
+      text.textContent = msg.msg;
+      bubble.appendChild(text);
+
+      const replyBtn = document.createElement("span");
+      replyBtn.className = "reply-btn";
+      replyBtn.title = "Reply";
+      replyBtn.textContent = "↩";
+      replyBtn.onclick = () => {
+        replyTo = { name: msg.name, msg: msg.msg };
+        updateReplyPreview();
+        messageInput.focus();
+      };
+      bubble.appendChild(replyBtn);
+
+      chatBox.appendChild(bubble);
+    });
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const msg = messageInput.value.trim();
+    if (!msg) return;
+    const payload = { name: myName, msg: msg, replyTo: replyTo };
+    try {
+      const res = await fetch('/chat/send', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        messageInput.value = "";
+        replyTo = null;
+        updateReplyPreview();
+        fetchMessages();
+      } else {
+        alert("Failed to send message");
+      }
+    } catch (e) {
+      alert("Error sending message");
+      console.error(e);
+    }
+  }
+
+  sendBtn.onclick = sendMessage;
+
+  messageInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  function notifyTyping() {
+    fetch('/chat/typing', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: myName, typing: true })
+    });
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      fetch('/chat/typing', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: myName, typing: false })
+      });
+    }, 1500);
+  }
+
+  function fetchTypingStatus() {
+    fetch(`/chat/typing?name=${encodeURIComponent(myName)}`)
+      .then(res => res.json())
+      .then(data => {
+        typingIndicator.textContent = data.length > 0 ? `${data.join(', ')} typing...` : "";
+      })
+      .catch(console.error);
+  }
+
+  messageInput.addEventListener("input", notifyTyping);
+
+  setInterval(fetchMessages, 2000);
+  setInterval(fetchTypingStatus, 1500);
+  fetchMessages();
+  fetchTypingStatus();
+</script>
+
+</body>
+</html>

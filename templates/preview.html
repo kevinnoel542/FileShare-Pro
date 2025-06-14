@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>File Preview</title>
+  <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: #121212;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    video, audio, img, iframe, pre {
+      width: 100%;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+      background: #000;
+      margin-bottom: 1rem;
+    }
+    audio {
+      background-color: #1db954;
+    }
+    .back-btn {
+      margin-bottom: 20px;
+      display: inline-block;
+      color: #fff;
+      text-decoration: none;
+      background: #0d6efd;
+      padding: 6px 16px;
+      border-radius: 8px;
+    }
+    .file-info {
+      background: #1e1e1e;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .btn-download {
+      display: inline-block;
+      margin-top: 10px;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Video Preview Overlay */
+    .video-preview-wrapper {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90vw;
+      max-width: 900px;
+      height: 80vh;
+      max-height: 600px;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.7);
+      z-index: 9999;
+      padding: 10px;
+      overflow: hidden;
+      flex-direction: column;
+    }
+    .video-preview-wrapper video {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: none;
+    }
+
+    /* Controls container */
+    .media-controls {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    .media-controls button {
+      background: #0d6efd;
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .media-controls button:hover {
+      background: #0a58ca;
+    }
+
+    /* Controls below inline audio */
+    #previewArea .media-controls {
+      margin-top: -12px;
+      margin-bottom: 15px;
+    }
+
+    /* Close Button */
+    .close-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      padding: 5px 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      z-index: 10000;
+      transition: background 0.3s;
+    }
+    .close-btn:hover {
+      background: rgba(255,255,255,0.5);
+    }
+
+    /* Responsive Tweaks */
+    @media (max-width: 600px) {
+      .video-preview-wrapper {
+        width: 95vw;
+        height: 60vh;
+        max-height: none;
+        padding: 5px;
+        border-radius: 8px;
+      }
+      .close-btn {
+        top: 10px;
+        right: 10px;
+        font-size: 1.2rem;
+        padding: 4px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container fade-in">
+    <a href="/imported" class="back-btn">← Back to Files</a>
+    <h2>File Preview</h2>
+    <div id="fileInfo" class="file-info"></div>
+    <div id="previewArea">Loading preview...</div>
+  </div>
+
+  <script>
+    const query = new URLSearchParams(window.location.search);
+    const file = query.get('file');
+    const previewArea = document.getElementById('previewArea');
+    const fileInfo = document.getElementById('fileInfo');
+
+    let videoOverlay, closeButton;
+
+    function skipTime(media, seconds) {
+      if (!media) return;
+      let newTime = media.currentTime + seconds;
+      if (newTime < 0) newTime = 0;
+      if (newTime > media.duration) newTime = media.duration;
+      media.currentTime = newTime;
+    }
+
+    function createSkipButtons(media) {
+      const controls = document.createElement('div');
+      controls.className = 'media-controls';
+
+      const backBtn = document.createElement('button');
+      backBtn.textContent = '⏪ 10s';
+      backBtn.onclick = () => skipTime(media, -10);
+
+      const forwardBtn = document.createElement('button');
+      forwardBtn.textContent = '10s ⏩';
+      forwardBtn.onclick = () => skipTime(media, 10);
+
+      controls.appendChild(backBtn);
+      controls.appendChild(forwardBtn);
+
+      return controls;
+    }
+
+    function closeVideoPreview() {
+      if (videoOverlay) {
+        videoOverlay.remove();
+        videoOverlay = null;
+      }
+      if (closeButton) {
+        closeButton.remove();
+        closeButton = null;
+      }
+      document.querySelector('.container').style.display = 'block';
+    }
+
+    if (!file) {
+      previewArea.innerHTML = "<p class='text-danger'>No file specified.</p>";
+    } else {
+      const ext = file.split('.').pop().toLowerCase();
+      const src = `/imported/files/${encodeURIComponent(file)}`;
+
+      fileInfo.innerHTML = `
+        <strong>Name:</strong> ${file}<br />
+        <strong>Type:</strong> ${ext}<br />
+        <a href="${src}" download class="btn btn-outline-light btn-sm btn-download">⬇ Download</a>
+      `;
+
+      if (["mp4", "webm", "mov", "mkv"].includes(ext)) {
+        // Hide main container so only overlay shows
+        document.querySelector('.container').style.display = 'none';
+
+        videoOverlay = document.createElement('div');
+        videoOverlay.className = 'video-preview-wrapper';
+
+        const video = document.createElement('video');
+        video.controls = true;
+        video.autoplay = true;
+        video.src = src;
+        video.type = `video/${ext}`;
+        videoOverlay.appendChild(video);
+
+        // Add skip buttons below video
+        const skipControls = createSkipButtons(video);
+        videoOverlay.appendChild(skipControls);
+
+        document.body.appendChild(videoOverlay);
+
+        closeButton = document.createElement('button');
+        closeButton.className = 'close-btn';
+        closeButton.innerHTML = '✕';
+        closeButton.addEventListener('click', closeVideoPreview);
+        document.body.appendChild(closeButton);
+
+      } else if (["mp3", "wav", "ogg"].includes(ext)) {
+        previewArea.innerHTML = `<audio controls autoplay id="audioPlayer"><source src="${src}" type="audio/${ext}">Your browser does not support audio.</audio>`;
+
+        // Wait for audio element to be added, then add skip buttons
+        const audio = document.getElementById('audioPlayer');
+        const skipControls = createSkipButtons(audio);
+        previewArea.appendChild(skipControls);
+
+      } else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) {
+        previewArea.innerHTML = `<img src="${src}" alt="${file}" />`;
+      } else if (["pdf"].includes(ext)) {
+        previewArea.innerHTML = `<iframe src="${src}" height="600px"></iframe>`;
+      } else if (["txt", "log", "json", "csv", "html", "xml"].includes(ext)) {
+        fetch(src)
+          .then(res => {
+            if (!res.ok) throw new Error("Not Found");
+            return res.text();
+          })
+          .then(text => {
+            previewArea.innerHTML = `<pre style="background:#1e1e1e;padding:1em;">${text.replace(/</g, "&lt;")}</pre>`;
+          })
+          .catch(err => previewArea.innerHTML = `<div class='alert alert-warning'>⚠️ File not found or couldn't be loaded.</div>`);
+      } else {
+        previewArea.innerHTML = `
+          <div class="alert alert-info">Preview not available for this file type.</div>
+          <a href="${src}" class="btn btn-success" download>⬇ Download</a>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
