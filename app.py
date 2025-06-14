@@ -215,7 +215,7 @@ def send_chat_message():
     filtered_chat.append(new_entry)
 
     with open(CHAT_FILE, 'w') as f:
-        json.dump(filtered_chat[-100:], f)
+        json.dump(filtered_chat[-400:], f)
 
     return jsonify({'status': 'ok'})
 

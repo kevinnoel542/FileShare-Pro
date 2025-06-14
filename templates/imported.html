@@ -121,7 +121,7 @@
 
     <form id="uploadForm" class="mb-3" enctype="multipart/form-data" novalidate>
       <div class="input-group">
-        <input type="file" name="file" id="fileInput" class="form-control" required />
+        <input type="file" name="file" id="fileInput" class="form-control" required multiple />
         <button type="submit" class="btn btn-primary">Upload</button>
       </div>
       <div class="progress mt-2" style="display:none;">
@@ -281,63 +281,76 @@ function getBadge(fileName) {
     const progressBarInner = uploadForm.querySelector('.progress-bar');
     const uploadInfo = document.getElementById('uploadInfo');
 
-    uploadForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      if (!fileInput.files.length) {
-        showToast('Please select a file to upload', 'warning');
-        return;
-      }
-      const file = fileInput.files[0];
-      const formData = new FormData();
-      formData.append('file', file);
+uploadForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const files = fileInput.files;
+  if (!files.length) {
+    showToast('Please select at least one file to upload', 'warning');
+    return;
+  }
 
-      progressBar.style.display = 'block';
-      progressBarInner.style.width = '0%';
-      progressBarInner.textContent = '0%';
-      uploadInfo.style.display = 'block';
-      uploadInfo.textContent = '';
-      const startTime = Date.now();
+  const uploadQueue = Array.from(files);
+  progressBar.style.display = 'block';
+  uploadInfo.style.display = 'block';
 
-      try {
-        await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', '/imported/upload', true);
+  let totalUploaded = 0;
 
-          xhr.upload.onprogress = event => {
-            if (event.lengthComputable) {
-              const percent = Math.round((event.loaded / event.total) * 100);
-              progressBarInner.style.width = percent + '%';
-              progressBarInner.textContent = percent + '%';
+  for (const file of uploadQueue) {
+    const formData = new FormData();
+    formData.append('file', file);
 
-              const elapsed = (Date.now() - startTime) / 1000;
-              const speed = (event.loaded / 1024 / elapsed).toFixed(2);
-              const eta = (event.total - event.loaded) / (event.loaded / elapsed);
-              uploadInfo.textContent = `Speed: ${speed} KB/s | ETA: ${Math.ceil(eta)}s`;
-            }
-          };
+    progressBarInner.style.width = '0%';
+    progressBarInner.textContent = '0%';
+    uploadInfo.textContent = `Uploading: ${file.name}`;
 
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              showToast('Upload successful!', 'success');
-              uploadForm.reset();
-              progressBar.style.display = 'none';
-              uploadInfo.style.display = 'none';
-              fetchFiles();
-              resolve();
-            } else {
-              reject(new Error('Upload failed'));
-            }
-          };
+    const startTime = Date.now();
 
-          xhr.onerror = () => reject(new Error('Upload error'));
-          xhr.send(formData);
-        });
-      } catch (err) {
-        showToast('Upload failed', 'danger');
-        progressBar.style.display = 'none';
-        uploadInfo.style.display = 'none';
-      }
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/imported/upload', true);
+
+        xhr.upload.onprogress = event => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            progressBarInner.style.width = percent + '%';
+            progressBarInner.textContent = `${percent}%`;
+
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = (event.loaded / 1024 / elapsed).toFixed(2);
+            const eta = (event.total - event.loaded) / (event.loaded / elapsed);
+            uploadInfo.textContent = `Uploading: ${file.name} | Speed: ${speed} KB/s | ETA: ${Math.ceil(eta)}s`;
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            showToast(`Uploaded: ${file.name}`, 'success');
+            totalUploaded++;
+            resolve();
+          } else {
+            showToast(`Failed: ${file.name}`, 'danger');
+            reject();
+          }
+        };
+
+        xhr.onerror = () => {
+          showToast(`Error uploading: ${file.name}`, 'danger');
+          reject();
+        };
+
+        xhr.send(formData);
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  uploadForm.reset();
+  progressBar.style.display = 'none';
+  uploadInfo.style.display = 'none';
+  if (totalUploaded > 0) fetchFiles();
+});
 
     window.addEventListener('DOMContentLoaded', fetchFiles);
   </script>
