@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Imported Files - FileShare Pro</title>
+  <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    nav.navbar-dark {
+      background-color: #343a40;
+    }
+    [data-theme="dark"] {
+      background-color: #121212;
+      color: #eee;
+    }
+    [data-theme="dark"] .btn-primary {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    main.container {
+      flex-grow: 1;
+      padding-top: 1rem;
+    }
+    .progress {
+      height: 20px;
+    }
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1055;
+    }
+    .filter-input {
+      max-width: 320px;
+    }
+    .table-responsive {
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .badge-circle {
+      display: inline-block;
+      width: 1.5em;
+      height: 1.5em;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 1.5em;
+      font-size: 0.75em;
+      color: white;
+      margin-right: 0.5em;
+    }
+    .badge-zip { background: #6c757d; }
+    .badge-image { background: #0d6efd; }
+    .badge-video { background: #dc3545; }
+    .badge-audio { background: #198754; }
+    .badge-other { background: #ffc107; }
+
+    .file-type-label {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 12px;
+      border: 1px solid;
+      text-transform: capitalize;
+      vertical-align: middle;
+    }
+    .label-video {
+      color: #dc3545;
+      border-color: #dc3545;
+      background-color: rgba(220, 53, 69, 0.08);
+    }
+    .label-audio {
+      color: #198754;
+      border-color: #198754;
+      background-color: rgba(25, 135, 84, 0.08);
+    }
+    .label-image {
+      color: #0d6efd;
+      border-color: #0d6efd;
+      background-color: rgba(13, 110, 253, 0.08);
+    }
+    .label-zip {
+      color: #6c757d;
+      border-color: #6c757d;
+      background-color: rgba(108, 117, 125, 0.08);
+    }
+    .label-other {
+      color: #ffc107;
+      border-color: #ffc107;
+      background-color: rgba(255, 193, 7, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="/">FileShare Pro</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navImported">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navImported">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link active" href="/imported">Imported Files</a></li>
+        </ul>
+        <div class="form-check form-switch toggle-switch text-light">
+          <input class="form-check-input" type="checkbox" id="darkModeToggle" />
+          <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2 class="my-3">Imported Files</h2>
+
+    <form id="uploadForm" class="mb-3" enctype="multipart/form-data" novalidate>
+      <div class="input-group">
+        <input type="file" name="file" id="fileInput" class="form-control" required />
+        <button type="submit" class="btn btn-primary">Upload</button>
+      </div>
+      <div class="progress mt-2" style="display:none;">
+        <div class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+      </div>
+      <div id="uploadInfo" class="mt-1 text-muted" style="display:none; font-size: 0.9em;"></div>
+    </form>
+
+    <input type="text" id="filterInput" class="form-control filter-input mb-3" placeholder="Filter files by name..." />
+
+    <div class="table-responsive">
+      <table class="table table-striped table-hover" id="filesTable" aria-live="polite">
+        <thead class="table-dark">
+          <tr>
+            <th>File Name</th>
+            <th>Size (MB)</th>
+            <th>Last Modified</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="filesBody"></tbody>
+      </table>
+    </div>
+
+    <nav class="d-flex justify-content-between align-items-center mt-3">
+      <button id="prevPage" class="btn btn-outline-primary btn-sm">Previous</button>
+      <span id="pageInfo" class="text-muted small"></span>
+      <button id="nextPage" class="btn btn-outline-primary btn-sm">Next</button>
+    </nav>
+  </main>
+
+  <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="/static/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const darkToggle = document.getElementById('darkModeToggle');
+    const root = document.documentElement;
+    function setTheme(theme) {
+      root.setAttribute('data-theme', theme);
+      darkToggle.checked = theme === 'dark';
+      localStorage.setItem('theme', theme);
+    }
+    darkToggle.addEventListener('change', () => setTheme(darkToggle.checked ? 'dark' : 'light'));
+    setTheme(localStorage.getItem('theme') || 'light');
+
+    function showToast(message, type = 'info') {
+      const container = document.querySelector('.toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-bg-${type} border-0`;
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'assertive');
+      toast.setAttribute('aria-atomic', 'true');
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${message}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>`;
+      container.appendChild(toast);
+      const bsToast = new bootstrap.Toast(toast, { delay: 4000 });
+      bsToast.show();
+      toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+
+    let allFiles = [];
+    let currentPage = 1;
+    const perPage = 5;
+
+    async function fetchFiles() {
+      try {
+        const res = await fetch('/imported/files');
+        if (!res.ok) throw new Error('Failed to fetch files');
+        const files = await res.json();
+        allFiles = files;
+        renderPage(currentPage);
+      } catch (e) {
+        showToast('Error loading files', 'danger');
+      }
+    }
+
+function getBadge(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  let label = '';
+
+  if (["zip", "rar", "7z"].includes(ext)) {
+    label = '<span class="file-type-label label-zip">Zip</span>';
+  } else if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
+    label = '<span class="file-type-label label-image">Image</span>';
+  } else if (["mp4", "mov", "avi", "mkv"].includes(ext)) {
+    label = '<span class="file-type-label label-video">Video</span>';
+  } else if (["mp3", "wav", "ogg"].includes(ext)) {
+    label = '<span class="file-type-label label-audio">Audio</span>';
+  } else {
+    label = '<span class="file-type-label label-other">File</span>';
+  }
+
+  return label + ' ';
+}
+   
+
+    function renderPage(page) {
+      const filterText = document.getElementById('filterInput').value.toLowerCase();
+      const filtered = allFiles.filter(f => f.name.toLowerCase().includes(filterText));
+
+      const tbody = document.getElementById('filesBody');
+      tbody.innerHTML = '';
+
+      const totalPages = Math.ceil(filtered.length / perPage);
+      currentPage = Math.max(1, Math.min(page, totalPages));
+      const start = (currentPage - 1) * perPage;
+      const end = start + perPage;
+      const pageFiles = filtered.slice(start, end);
+
+      if (pageFiles.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No files found</td></tr>`;
+      } else {
+        pageFiles.forEach(({ name, size, modified }) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${getBadge(name)}${name}</td>
+            <td>${size}</td>
+            <td>${modified}</td>
+            <td class="text-center">
+              <a href="/imported/files/${encodeURIComponent(name)}" class="btn btn-sm btn-success me-1" download title="Download ${name}">⬇️</a>
+              <button class="btn btn-sm btn-danger" onclick="deleteFile('${name}')" title="Delete ${name}">🗑️</button>
+            </td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${Math.max(1, totalPages)}`;
+      document.getElementById('prevPage').disabled = currentPage === 1;
+      document.getElementById('nextPage').disabled = currentPage === totalPages;
+    }
+
+    document.getElementById('prevPage').addEventListener('click', () => renderPage(currentPage - 1));
+    document.getElementById('nextPage').addEventListener('click', () => renderPage(currentPage + 1));
+    document.getElementById('filterInput').addEventListener('input', () => renderPage(1));
+
+    async function deleteFile(filename) {
+      if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
+      try {
+        const res = await fetch(`/imported/files/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Delete failed');
+        showToast(`Deleted "${filename}"`, 'success');
+        fetchFiles();
+      } catch {
+        showToast(`Failed to delete "${filename}"`, 'danger');
+      }
+    }
+
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const progressBar = uploadForm.querySelector('.progress');
+    const progressBarInner = uploadForm.querySelector('.progress-bar');
+    const uploadInfo = document.getElementById('uploadInfo');
+
+    uploadForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!fileInput.files.length) {
+        showToast('Please select a file to upload', 'warning');
+        return;
+      }
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      progressBar.style.display = 'block';
+      progressBarInner.style.width = '0%';
+      progressBarInner.textContent = '0%';
+      uploadInfo.style.display = 'block';
+      uploadInfo.textContent = '';
+      const startTime = Date.now();
+
+      try {
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/imported/upload', true);
+
+          xhr.upload.onprogress = event => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              progressBarInner.style.width = percent + '%';
+              progressBarInner.textContent = percent + '%';
+
+              const elapsed = (Date.now() - startTime) / 1000;
+              const speed = (event.loaded / 1024 / elapsed).toFixed(2);
+              const eta = (event.total - event.loaded) / (event.loaded / elapsed);
+              uploadInfo.textContent = `Speed: ${speed} KB/s | ETA: ${Math.ceil(eta)}s`;
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              showToast('Upload successful!', 'success');
+              uploadForm.reset();
+              progressBar.style.display = 'none';
+              uploadInfo.style.display = 'none';
+              fetchFiles();
+              resolve();
+            } else {
+              reject(new Error('Upload failed'));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Upload error'));
+          xhr.send(formData);
+        });
+      } catch (err) {
+        showToast('Upload failed', 'danger');
+        progressBar.style.display = 'none';
+        uploadInfo.style.display = 'none';
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', fetchFiles);
+  </script>
+</body>
+</html>
